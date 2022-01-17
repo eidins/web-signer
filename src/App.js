@@ -2,15 +2,15 @@ import logo from './logo.svg';
 import './App.css';
 import React, {useState} from 'react';
 import { ZipReader, BlobReader, TextWriter } from '@zip.js/zip.js';
-import { SignedXml } from 'xadesjs';
-import { Parse } from 'xml-core';
+import * as XAdES from 'xadesjs';
 
 
 function verifySignature(xml) {
-  var signedDocument = Parse(xml, "application/xml");
+  console.log(XAdES);
+  var signedDocument = XAdES.Parse(xml, "application/xml");
   var xmlSignature = signedDocument.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature");
 
-  var signedXml = new SignedXml(signedDocument);
+  var signedXml = new XAdES.SignedXml(signedDocument);
   signedXml.LoadXml(xmlSignature[0]);
   return signedXml.Verify()
 }
