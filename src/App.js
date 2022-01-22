@@ -5,38 +5,61 @@ import { ZipReader, BlobReader, TextWriter } from '@zip.js/zip.js';
 import * as XAdES from 'xadesjs';
 
 
-function verifySignature(xml) {
-  console.log(XAdES);
-  var signedDocument = XAdES.Parse(xml, "application/xml");
-  var xmlSignature = signedDocument.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature");
+function verify(file) {
+  const zf = new ZipReader(new BlobReader(file));
+  return zf.getEntries().then((entries) => {
+    return entries.find(
+      (entry) => entry.filename == "META-INF/edoc-signatures-S1.xml"
+    ).getData(new TextWriter())
+  }).then((signaturesXml) => {
+    try {
+      return XAdES.Parse(signaturesXml, "application/xml");
+    } catch (e) {
+      console.info("Failed to parse xml");
+      throw e;
+    }
+  }).then((signedDocument) => {
+    var xmlSignature = signedDocument.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature");
+    var signedXml = new XAdES.SignedXml(signedDocument);
 
-  var signedXml = new XAdES.SignedXml(signedDocument);
-  signedXml.LoadXml(xmlSignature[0]);
-  return signedXml.Verify()
+    signedXml.LoadXml(xmlSignature[0]);
+    console.log(signedXml);
+    return signedXml.Verify()
+  })
+}
+
+function sign(file) {
+  var signedXml = new XAdES.SignedXml();
+  var ts = new XAdES.xml.SignatureTimeStamp();
+  ts.EncapsulatedTimeStamp.Add(new XAdES.xml.EncapsulatedTimeStamp())
+  signedXml.Properties.UnsignedProperties.UnsignedSignatureProperties.Add(ts)
+  console.log(signedXml.Properties.UnsignedProperties.UnsignedSignatureProperties);
+}
+
+function Verified(props) {
+  if (props.value) {
+    return <div>Verified!</div>
+  } else {
+    return <div></div>
+  }
 }
 
 function App() {
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [verified, setVerified] = useState(false);
 
   return (
     <div className="App">
       <input type="file" onChange={(event) => {
         Array.from(event.target.files).map((f) => {
-          const zf = new ZipReader(new BlobReader(f));
-          zf.getEntries().then((entries) => {
-            entries.forEach((entry) => {
-              if (entry.filename == "META-INF/edoc-signatures-S1.xml") {
-                entry.getData(new TextWriter()).then((xml) => {
-                  verifySignature(xml).then((res) => {
-                    console.log(res);
-                  })
-                })
-              }
-            })
-          })
+          console.log(f);
+          if (f.type == "application/vnd.etsi.asic-e+zip") {
+            verify(f).then(setVerified);
+          }
+
           return f;
         })
       }} />
+      <Verified value={verified} />
     </div>
   );
 }
