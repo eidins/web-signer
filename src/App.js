@@ -29,11 +29,29 @@ function verify(file) {
 }
 
 function sign(file) {
-  var signedXml = new XAdES.SignedXml();
-  var ts = new XAdES.xml.SignatureTimeStamp();
-  ts.EncapsulatedTimeStamp.Add(new XAdES.xml.EncapsulatedTimeStamp())
-  signedXml.Properties.UnsignedProperties.UnsignedSignatureProperties.Add(ts)
-  console.log(signedXml.Properties.UnsignedProperties.UnsignedSignatureProperties);
+  const dataRaw = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+  const tsRaw = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 0]);
+  
+  // Create XAdES-T signature
+  const signedXml = new XAdES.SignedXml();
+  const ts = new XAdES.xml.SignatureTimeStamp();
+  const ets = new XAdES.xml.EncapsulatedTimeStamp();
+  ets.Encoding = "ber";
+  ets.Value = tsRaw;
+  ts.EncapsulatedTimeStamp.Add(ets);
+  signedXml.UnsignedProperties.UnsignedSignatureProperties.Add(ts);
+
+  return signedXml.Sign(alg, keys.privateKey, dataRaw, {
+    keyValue: keys.publicKey,
+    x509: [signingCertString],
+    references: [
+        {
+            hash: "SHA-256",
+            uri: "some.txt",
+        }
+    ],
+    signingCertificate: signingCertString,
+});
 }
 
 function Verified(props) {
