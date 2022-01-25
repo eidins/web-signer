@@ -3,6 +3,7 @@ import './App.css';
 import React, { useState } from 'react';
 import { ZipReader, BlobReader, TextWriter, BlobWriter } from '@zip.js/zip.js';
 import * as XAdES from 'xadesjs';
+import { SignedXml } from './ASiC';
 
 
 function verify(file) {
@@ -20,21 +21,27 @@ function verify(file) {
     }
   }).then((signedDocument) => {
     var xmlSignature = signedDocument.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Signature");
-    var signedXml = new XAdES.SignedXml(signedDocument);
+    var signedXml = new SignedXml(signedDocument);
 
     signedXml.LoadXml(xmlSignature[0]);
     console.log(signedXml);
-    zf.getEntries().then((entries) => {
-      return entries.find(
-        (entry) => entry.filename == "IMG_20220116_135705.pdf"
-      ).getData(new BlobWriter()).then(
-        (blob) => blob.arrayBuffer()
-      ).then((data) => {
-        console.log(data);
-        return signedXml.Verify({
-          content: data
-        })
+    signedXml.contentHandler = (ref) => {
+      console.log(ref);
+      return zf.getEntries().then((entries) => {
+        console.log(entries);
+        const entry = entries.find(
+          (entry) => encodeURIComponent(entry.filename) == ref.Uri
+        );
+        if (entry) {
+          return entry.getData(new BlobWriter()).then(
+            (blob) => blob.arrayBuffer()
+          )
+        }
+        return null;
       })
+    };
+    return signedXml.Verify().catch((e) => {
+      console.log(e);
     })
   })
 }
